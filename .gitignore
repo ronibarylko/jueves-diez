@@ -1,0 +1,29 @@
+# Lo de cada persona: no se sube
+config.json
+memoria.md
+PRODUCT.md
+DESIGN.md
+ultima_corrida.txt
+practicas/
+practicar.log
+.impeccable/
+design/cambios_sin_publicar.txt
+design/artifacts.txt
+design/Avances Semanales - *.html
+design/assets/*
+!design/assets/brand/
+!design/assets/verticals/
+
+# Lo que revisar_ds.py baja de Claude Design
+design/_ds/
+design/slide.css
+design/CLAUDE.md
+
+# Skills que no son de este flujo
+.claude/skills/*
+!.claude/skills/avances-semanales/
+!.claude/skills/orquestar/
+
+# Temporales de los scripts
+.revision_ds/
+__pycache__/

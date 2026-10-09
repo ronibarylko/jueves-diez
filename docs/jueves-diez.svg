@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="t d">
+  <title id="t">jueves, 10:00</title>
+  <desc id="d">El deck de avances del jueves se arma solo. Vos practicá.</desc>
+  <style>
+    text { font-family: Poppins, "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  </style>
+
+  <rect width="1280" height="420" rx="20" fill="#000"/>
+  <rect x="0.5" y="0.5" width="1279" height="419" rx="19.5" fill="none" stroke="#1A1A1A"/>
+
+  <text x="72" y="104" font-size="16" font-weight="500" letter-spacing="3" fill="#A8A8A8">FLOCK LABS · I+D · AVANCES SEMANALES</text>
+  <text x="68" y="214" font-size="104" font-weight="500" letter-spacing="-3.5" fill="#FFF">jueves, 10:00</text>
+
+  <rect x="72" y="258" width="6" height="76" rx="3" fill="#EC00FF"/>
+  <text x="104" y="290" font-size="32" font-weight="500" letter-spacing="-0.6" fill="#FFF">El deck se arma solo. Vos practicá.</text>
+  <text x="104" y="326" font-size="21" fill="#A8A8A8">Commits de la semana → slides → ensayo con feedback</text>
+
+  <g transform="translate(1064 210)">
+    <circle r="128" fill="rgb(255 255 255 / 6%)" fill-opacity="1"/>
+    <circle r="128" fill="none" stroke="#3D3D3D"/>
+    <g stroke="#6B6B6B" stroke-width="3" stroke-linecap="round">
+      <line y1="-112" y2="-100" transform="rotate(30)"/>
+      <line y1="-112" y2="-100" transform="rotate(60)"/>
+      <line y1="-112" y2="-100" transform="rotate(120)"/>
+      <line y1="-112" y2="-100" transform="rotate(150)"/>
+      <line y1="-112" y2="-100" transform="rotate(210)"/>
+      <line y1="-112" y2="-100" transform="rotate(240)"/>
+      <line y1="-112" y2="-100" transform="rotate(300)"/>
+      <line y1="-112" y2="-100" transform="rotate(330)"/>
+    </g>
+    <g stroke="#FFF" stroke-width="4" stroke-linecap="round">
+      <line y1="-114" y2="-94"/>
+      <line y1="-114" y2="-94" transform="rotate(90)"/>
+      <line y1="-114" y2="-94" transform="rotate(180)"/>
+      <line y1="-114" y2="-94" transform="rotate(270)"/>
+    </g>
+    <line x1="0" y1="0" x2="-55" y2="-32" stroke="#FFF" stroke-width="10" stroke-linecap="round"/>
+    <line x1="0" y1="0" x2="0" y2="-88" stroke="#FFF" stroke-width="6" stroke-linecap="round"/>
+    <circle r="9" fill="#EC00FF"/>
+    <circle r="3" fill="#000"/>
+  </g>
+</svg>
