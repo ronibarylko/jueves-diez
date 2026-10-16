@@ -159,6 +159,90 @@ SLIDE
 {html}'''
 
 
+AUDITORIA = '''Hacé el `audit` de Impeccable sobre este deck de avances semanales de Flock Labs I+D (slides de 1920×1080
+que se proyectan en una sala; no es una web: lo responsive y el touch no aplican). Abajo van la guía de audit de
+Impeccable, lo que encontró su detector, las reglas del proyecto y el HTML del deck.
+
+Buscá lo que de verdad se ve mal o falla al proyectar: contraste bajo, texto que no se lee desde el fondo (menos de
+18px), títulos de más de unos 32 caracteres (pasan a dos líneas), slides cargadas de texto, elementos desalineados o
+con alturas distintas entre tarjetas hermanas, colores o tamaños fuera del design system, cursiva o títulos con dos
+estilos, imágenes sin alt, cosas vacías o placeholders. Del detector, quedate solo con lo que importa y descartá los
+falsos positivos. No sugieras salir del design system de Flock ni tocar data-p, los <link>, los <script> ni deck-stage.
+La MEMORIA DE ESTILO manda sobre PRODUCT.md y DESIGN.md: lo que la persona eligió ahí (por ejemplo, títulos de tema
+en vez de afirmaciones, el color de la vertical para marcar lo elegido, la estructura del deck) no es un problema.
+
+Respondé SOLO un objeto JSON, sin markdown ni texto antes o después:
+{{"resumen": "una oración", "hallazgos": [{{"slide": número de slide (1 = la primera <section>) o null si es de todo el deck,
+  "gravedad": "alta" o "media" o "baja", "problema": "una oración", "arreglo": "el pedido concreto para reescribir la slide, o vacío"}}]}}
+Como mucho 8 hallazgos, los más importantes primero. Si no hay nada que valga la pena, "hallazgos" va vacío.
+Castellano rioplatense, frases cortas.
+
+GUÍA DE AUDIT DE IMPECCABLE
+{guia}
+
+DETECTOR DE IMPECCABLE
+{detector}
+
+MEMORIA DE ESTILO
+{memoria}
+
+REGLAS DEL PROYECTO
+{reglas}{contexto}
+
+DECK
+{html}'''
+
+
+def impeccable_dir():
+    """La carpeta de la skill de Impeccable instalada (la versión más nueva), o None."""
+    raiz = Path.home() / '.claude' / 'plugins' / 'cache' / 'impeccable' / 'impeccable'
+    return max(raiz.glob('*/skills/impeccable'), key=lambda p: p.parent.parent.name, default=None)
+
+
+def auditar(archivo):
+    """El audit de Impeccable del deck como dict (resumen, hallazgos); con 'error' si falla. Corre el detector de
+    Impeccable sobre una copia que apunta al design system local y le pasa todo a claude -p, que sigue su guía."""
+    try:
+        base = impeccable_dir()
+        if not base:
+            raise RuntimeError('Impeccable no está instalado')
+        import subprocess
+        html = archivo.read_text(encoding='utf-8')
+        copia = DISENO / '.auditoria.html'  # el deck pide ds/tokens; acá el design system está en otra carpeta
+        copia.write_text(html.replace('href="ds/', f'href="{DS.relative_to(DISENO).as_posix()}/'), encoding='utf-8')
+        try:
+            r = subprocess.run([str(base / 'scripts' / ('impeccable.cmd' if os.name == 'nt' else 'impeccable')), 'detect', '--json', str(copia)],
+                               cwd=AQUI, capture_output=True, text=True, encoding='utf-8', timeout=120,
+                               creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            detector = json.dumps([{k: f.get(k) for k in ('name', 'severity', 'line', 'snippet')} for f in json.loads(r.stdout or '[]')],
+                                  ensure_ascii=False)
+        finally:
+            copia.unlink(missing_ok=True)
+        reglas, memoria = DISENO / 'CLAUDE.md', AQUI / 'memoria.md'
+        texto = claude(AUDITORIA.format(guia=(base / 'reference' / 'audit.md').read_text(encoding='utf-8'), detector=detector,
+                                        memoria=memoria.read_text(encoding='utf-8') if memoria.exists() else '(vacía)',
+                                        reglas=reglas.read_text(encoding='utf-8') if reglas.exists() else '', contexto=contexto_impeccable(),
+                                        html=html))
+        return json.loads(texto[texto.find('{'):texto.rfind('}') + 1])
+    except Exception as e:
+        print(f'Audit falló: {e}', flush=True)
+        return {'error': str(e)[:200]}
+
+
+def primera_practica(datos):
+    """True si ninguna práctica anterior de este deck tiene el audit: se corre una vez por deck."""
+    for p in PRACTICAS.glob('*.json'):
+        if p.stem == datos['id']:
+            continue
+        try:
+            otra = json.loads(p.read_text(encoding='utf-8'))
+        except Exception:
+            continue
+        if otra.get('deck') == datos.get('deck') and otra.get('auditoria') and 'error' not in otra['auditoria']:
+            return False
+    return True
+
+
 def contexto_impeccable():
     """PRODUCT.md y DESIGN.md, los que arma Impeccable al configurar: el claude -p sin herramientas no puede correr
     Impeccable, pero sí seguir sus reglas. La skill le pasa polish a estos cambios antes de publicarlos."""
@@ -248,7 +332,18 @@ def _transcribir(id_):
         datos['palabras_por_minuto'] = round(len(palabras) / datos['total'] * 60) if datos['total'] else None
         datos['estado'] = 'analizando'
         datos_path.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding='utf-8')
+        # La primera práctica de un deck es la señal de que está casi listo: ahí va el audit de Impeccable, en
+        # paralelo con el feedback para no hacer esperar más.
+        auditoria = {}
+        archivo = deck(str(datos.get('deck', '')).split('·')[-1].strip())
+        hilo = None
+        if archivo and primera_practica(datos):
+            hilo = threading.Thread(target=lambda: auditoria.update(auditar(archivo)), daemon=True)
+            hilo.start()
         datos['feedback'] = pedir_feedback(datos)
+        if hilo:
+            hilo.join()
+            datos['auditoria'] = auditoria
         callada = {s['slide'] for s in datos['slides'] if not s['dijo'].strip()}
         for s in (datos['feedback'] or {}).get('slides', []):  # una slide sin hablar no se califica, diga lo que diga Claude
             if s.get('slide') in callada:
@@ -270,6 +365,10 @@ class Handler(SimpleHTTPRequestHandler):
 
     def log_message(self, *a):
         pass
+
+    def end_headers(self):  # sin esto el navegador guarda deck-stage.js, editor.js y practica-local.js viejos
+        self.send_header('Cache-Control', 'no-cache')
+        super().end_headers()
 
     def responder(self, cuerpo, tipo='application/json; charset=utf-8', codigo=200):
         datos = cuerpo.encode('utf-8') if isinstance(cuerpo, str) else cuerpo
@@ -294,6 +393,8 @@ class Handler(SimpleHTTPRequestHandler):
                       '<meta name="viewport" content="width=device-width,initial-scale=1"></head><body>'
                       + archivo.read_text(encoding='utf-8')
                       + '<script src="practica-local.js"></script></body></html>')
+            # ?v= con la fecha de cada .js: si cambió, el navegador no usa la copia que tenía guardada.
+            pagina = re.sub(r'src="([\w-]+\.js)"', lambda m: f'src="{m[1]}?v={int((DISENO / m[1]).stat().st_mtime) if (DISENO / m[1]).exists() else 0}"', pagina)
             return self.responder(pagina, 'text/html; charset=utf-8')
         if url.path == '/latido':  # el deck abierto avisa que sigue ahí
             return self.responder('{}')
@@ -303,7 +404,7 @@ class Handler(SimpleHTTPRequestHandler):
             medidas = [{k: s.get(k) for k in ('slide', 'titulo', 'segundos', 'palabras', 'palabras_por_minuto', 'pausas_largas', 'muletillas')}
                        for s in datos.get('slides', []) if 'segundos' in s]
             return self.responder(json.dumps({k: datos.get(k) for k in ('id', 'estado', 'total', 'minutos', 'palabras_por_minuto',
-                                                                        'feedback', 'memoria', 'memoria_propuesta')} | {'slides': medidas},
+                                                                        'feedback', 'memoria', 'memoria_propuesta', 'auditoria')} | {'slides': medidas},
                                              ensure_ascii=False))
         if self.path.startswith('/ds/'):  # el deck publicado llama ds/ a la carpeta del design system
             archivo = (DS / self.path[4:].split('?')[0]).resolve()

@@ -13,6 +13,12 @@
   const ESTADOS = { bien: 'Bien', ajustar: 'Ajustar', cortar: 'Cortar', sin_hablar: 'Sin presentar' };
   const fecha = () => document.querySelector('[data-auto-date]')?.dataset.autoDate || '';
 
+  // El Practicar del Artifact manda la hora de su último Guardar (ver editor.js). Si es más nueva que la de esta copia,
+  // acá faltan los cambios hechos a mano: se avisa, porque desde acá no se puede leer el Artifact (es privado).
+  const delArtifact = +new URLSearchParams(location.search).get('guardado') || 0;
+  if (delArtifact > (+stage()?.dataset.guardado || 0))
+    estado('Esta copia no tiene tus últimos cambios del Artifact. Pedile a Claude: "traé mis cambios"');
+
   // ---------- Estilos: alto contraste, nada legible por debajo de 18px, el color de la vertical del design system ----------
   const css = el('style');
   css.textContent = `
@@ -91,6 +97,11 @@
     .pp-meta { font-size: 18px; color: var(--suave) }
     .pp-sug { padding: 12px 14px; border-radius: 12px; background: #202026 }
     .pp-sug::before { content: "Probá: "; color: #fff; font-weight: 500 }
+    .pp-audit { display: grid; gap: 12px }
+    .pp-hallazgo { background: var(--caja); border: 1px solid var(--borde); border-radius: 16px; padding: 18px 20px; display: grid; gap: 10px }
+    .pp-hallazgo p { margin: 0 }
+    .pp-grav { font-size: 16px; font-weight: 600; letter-spacing: .04em; padding: 4px 12px; border-radius: 999px; color: #000; white-space: nowrap }
+    .pp-grav[data-g="alta"] { background: var(--cortar) } .pp-grav[data-g="media"] { background: var(--ajustar) } .pp-grav[data-g="baja"] { background: #3a3a42; color: #fff }
     .pp-card button { justify-self: start; padding: 10px 18px }
     .pp-memoria { background: var(--caja); border: 1px solid var(--borde); border-radius: 16px; padding: 22px 24px; display: grid; gap: 10px }
     .pp-memoria ul { margin: 0; padding-left: 22px; display: grid; gap: 6px }
@@ -327,6 +338,34 @@
     return caja;
   }
 
+  // Un hallazgo del audit. Con alUsar (en la revisión) el arreglo pasa al pedido; si no, lleva a revisar su slide.
+  const auditDe = (d, n) => (d.auditoria?.hallazgos || []).filter(h => +h.slide === n);
+  function hallazgo(h, d, alUsar) {
+    const caja = el('div', 'pp-hallazgo');
+    const arriba = el('div', 'pp-fila');
+    const g = el('span', 'pp-grav', h.gravedad || 'media');
+    g.dataset.g = h.gravedad || 'media';
+    const i = +h.slide - 1;
+    arriba.append(g, el('span', 'pp-meta', h.slide && !alUsar ? `Slide ${h.slide} · ${d.slides[i]?.titulo || ''}` : h.slide ? '' : 'Todo el deck'));
+    caja.append(arriba, el('p', null, h.problema || ''));
+    if (h.arreglo) caja.append(el('p', 'pp-sug', h.arreglo));
+    if (alUsar && h.arreglo) caja.append(boton('Usar este arreglo', null, () => alUsar(h.arreglo)));
+    else if (!alUsar && h.slide && stage().slides[i]) caja.append(boton('Revisar esta slide', null, () => entrarARevision(d, i)));
+    return caja;
+  }
+
+  // El audit de Impeccable: corre en la primera práctica de cada deck (ver practicar.py). Va también en la pantalla de
+  // práctica corta: es sobre el deck, no sobre cómo se habló.
+  function seccionAudit(d) {
+    const a = el('section', 'pp-audit');
+    a.append(el('h2', 'pp-h2', 'Revisión de diseño (Impeccable)'));
+    if (d.auditoria.error) return a.append(el('p', 'pp-meta', 'No se pudo correr el audit desde acá: pedíselo a Claude en el chat.')), a;
+    if (d.auditoria.resumen) a.append(el('p', 'pp-bajada', d.auditoria.resumen));
+    if (!d.auditoria.hallazgos?.length) a.append(el('p', null, 'No encontró nada para corregir.'));
+    for (const h of d.auditoria.hallazgos || []) a.append(hallazgo(h, d));
+    return a;
+  }
+
   function mostrarResultado(d, verDetalle) {
     salirDeRevision();
     abrir();
@@ -344,6 +383,7 @@
           ? 'Whisper no encontró casi nada de voz. Fijate que el navegador esté usando el micrófono correcto y hablá como en la presentación.'
           : 'Con tan pocas slides el feedback sirve poco. Para que valga, hacé una pasada completa.'));
       c.append(cab);
+      if (d.auditoria) { c.classList.remove('pp-corto'); c.append(seccionAudit(d)); }
       const pie = el('div', 'pp-pie');
       const otra = boton('Practicar de nuevo', 'pp-principal', practicarDeNuevo);
       pie.append(otra);
@@ -393,6 +433,8 @@
       sec.append(g);
       c.append(sec);
     }
+
+    if (d.auditoria) c.append(seccionAudit(d));
 
     // Slide por slide, con la miniatura de cada una
     const sec = el('section');
@@ -534,7 +576,8 @@
     const pedido = el('textarea');
     pedido.setAttribute('aria-label', 'Qué cambiarle a esta slide');
     pedido.placeholder = 'Qué cambiarle a esta slide';
-    pedido.value = f.sugerencia || '';
+    pedido.value = f.sugerencia || auditDe(d, i + 1).find(h => h.arreglo)?.arreglo || '';
+    for (const h of auditDe(d, i + 1)) c.append(hallazgo(h, d, t => { pedido.value = t; pedido.focus(); }));
     const aplicar = boton('Aplicar con Claude', 'pp-acento', async () => {
       if (!pedido.value.trim()) return estadoRev('Escribí qué cambiar.');
       aplicar.disabled = true;

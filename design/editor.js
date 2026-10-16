@@ -35,10 +35,13 @@
   // Artifact no puede usar el micrófono ni arrancar programas (jueves-diez://, file:// y una página puente publicada
   // en claude.ai: probados, no andan), así que practicar.py corre en segundo plano (python practicar.py --instalar).
   // La página no puede saber si la pestaña cargó: el mensaje no lo afirma. En el deck local, practica-local.js
-  // reemplaza este botón.
+  // reemplaza este botón. El link lleva solo la hora del último Guardar (data-guardado): si es más nueva que la de la
+  // copia local, practica-local.js avisa que faltan traer los cambios hechos a mano. El deck entero no entra: la app de
+  // Claude no abre links tan largos ("No se pudo abrir el enlace", probado el 15/10).
   $('b-practicar').onclick = () => {
     const fecha = document.querySelector('[data-auto-date]')?.dataset.autoDate || '';
-    const a = Object.assign(document.createElement('a'), { href: 'http://localhost:8766/?fecha=' + encodeURIComponent(fecha), target: '_blank', rel: 'noopener' });
+    const guardado = stage().dataset.guardado || '0';
+    const a = Object.assign(document.createElement('a'), { href: 'http://localhost:8766/?fecha=' + encodeURIComponent(fecha) + '&guardado=' + guardado, target: '_blank', rel: 'noopener' });
     a.click();
     estado('Si la pestaña da error, practicar.py no está corriendo: python practicar.py --instalar');
   };
@@ -47,14 +50,14 @@
   window.claude?.use?.('artifact').then(a => { artifact = a; $('b-editar').hidden = !a; });
 
   // La página tal como se escribió, con el texto editado y sin nada de lo que agregan el visor y esta barra.
-  function documento() {
-    const partes = [...document.body.children].filter(el => el.hasAttribute('data-p')).map(el => {
+  function partes() {
+    return [...document.body.children].filter(el => el.hasAttribute('data-p')).map(el => {
       const c = el.cloneNode(true);
       for (const x of [c, ...c.querySelectorAll('[data-activa], [contenteditable]')]) { x.removeAttribute('data-activa'); x.removeAttribute('contenteditable'); }
       return c.outerHTML;
-    });
-    return ESQUELETO + partes.join('\n') + '</body></html>';
+    }).join('\n');
   }
+  const documento = () => ESQUELETO + partes() + '</body></html>';
 
   $('b-editar').onclick = async () => {
     editando = !editando;
@@ -64,6 +67,7 @@
     estado(editando ? 'Click en un texto para cambiarlo' : 'Guardando…');
     if (editando) return;
     try {
+      stage().dataset.guardado = Date.now();
       await artifact.publish(documento());
       estado('Guardado');
     } catch (e) {

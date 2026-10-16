@@ -15,7 +15,8 @@ customElements.define('deck-stage', class extends HTMLElement {
     const ajustar = () => document.documentElement.style.setProperty('--k', Math.min(innerWidth / w, innerHeight / h));
     addEventListener('resize', ajustar);
     addEventListener('keydown', e => {
-      if (e.target.isContentEditable || e.target.matches?.('input, textarea')) return;  // escribiendo: las teclas son texto      const paso = { ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1, ArrowLeft: -1, ArrowUp: -1, PageUp: -1 }[e.key];
+      if (e.target.isContentEditable || e.target.matches?.('input, textarea')) return;  // escribiendo: las teclas son texto
+      const paso = { ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1, ArrowLeft: -1, ArrowUp: -1, PageUp: -1 }[e.key];
       if (paso) { e.preventDefault(); this.ir(this.i + paso); }
       if (e.key === 'Home') this.ir(0);
       if (e.key === 'End') this.ir(this.slides.length - 1);
