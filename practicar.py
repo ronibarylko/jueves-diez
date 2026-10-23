@@ -2,7 +2,7 @@
 
 Instalar una vez: python practicar.py --instalar   → queda corriendo en segundo plano y arranca con Windows
                                                    (--desinstalar lo saca). Whisper se carga recién al transcribir;
-                                                   a los 10 min sin uso se reinicia solo para liberar la memoria.
+                                                   a los 10 min sin uso lo suelta (no se reinicia).
 El botón Practicar del Artifact abre http://localhost:8766/?fecha=15 OCT 2026: el Artifact no puede arrancar
 programas, así que esto tiene que estar corriendo.
 A mano: python practicar.py [--sin-abrir] → abre el deck más reciente; se apaga a los 10 min de cerrarlo.
@@ -484,21 +484,15 @@ def apagar_sin_uso(servidor):
 
 def descargar_sin_uso(servidor, fondo):
     """A los 10 min de la última transcripción saca a Whisper de la memoria. Soltar el modelo libera la placa pero no
-    la RAM (las librerías de NVIDIA quedan cargadas en el proceso): en segundo plano se reinicia y vuelve a unos 25 MB."""
+    la RAM (las librerías de NVIDIA quedan cargadas en el proceso), pero no se reinicia para recuperarla (ver abajo)."""
     global _modelo
     while True:
         time.sleep(min(60, DESCARGAR_TRAS))
         with _lock:
             if _modelo is None or transcribiendo or time.time() - ultimo_uso <= DESCARGAR_TRAS:
                 continue
-            if fondo:
-                import subprocess
-                print(f'{datetime.now():%H:%M} Whisper sin uso: reinicio para liberar la memoria', flush=True)
-                servidor.shutdown()
-                servidor.server_close()
-                subprocess.Popen([sys.executable, str(AQUI / 'practicar.py'), '--fondo'], cwd=AQUI,
-                                 creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
-                os._exit(0)
+            # Antes se reiniciaba para volver a 25 MB, pero el 22/10 el proceso nuevo no arrancó y se perdió una
+            # práctica: más vale quedar con algo de RAM ocupada que con el servidor apagado.
             _modelo = None
             import gc
             gc.collect()

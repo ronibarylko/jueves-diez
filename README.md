@@ -14,12 +14,12 @@ Arranca cuando escribís **"Vamos a preparar las slides semanales"** o sola, con
 
 1. **Design system.** `revisar_ds.py` baja de Claude Design el design system y el Template, o los actualiza si cambiaron.
 2. **Qué cambió.** `cambios.py` lista commits y archivos tocados en tus proyectos desde el jueves anterior a las 10:00. Claude lo resume y te pregunta qué frentes incluir, para quién es y cuántos minutos tenés.
-3. **Deck.** Arma las slides con el design system de Flock, siguiendo el hilo de las semanas anteriores, les pasa [Impeccable](https://impeccable.style/) (crítica, recorte de slides cargadas, tipografía y pulido) y las publica como Artifact.
-4. **Iterar.** Editás el texto a mano en el Artifact (Editar → Guardar) o le pedís cambios por chat.
+3. **Deck.** Arma las slides con el design system de Flock, siguiendo el hilo de las semanas anteriores, les pasa [Impeccable](https://impeccable.style/) (crítica, recorte de slides cargadas, tipografía y pulido) y las publica como Artifact. Si un frente se explica mejor mostrando cómo funciona, te propone una figura isométrica e interactiva hecha con [anatomy](https://github.com/wheresryan22/anatomy).
+4. **Iterar.** Editás el texto a mano en el Artifact (Editar → Guardar) o le pedís cambios por chat, incluida una figura nueva si querés explicar cómo funciona algo.
 5. **Practicar.** Presentás en voz alta con el deck abierto en tu navegador: graba, Whisper lo transcribe en tu compu y Claude te da feedback de tiempo, ritmo, muletillas, hilo, orden, qué sobra, qué no se entiende y estilo. Ver [Cómo practicar](#cómo-practicar).
 6. **Presentar.** El jueves abrís el link y apretás "Pantalla completa".
 
-Impeccable aparece en cada momento que toca el diseño: al configurar (`init`, `document`), cuando cambia el design system (`document`), al armar el deck (`critique`, `distill`, `typeset`, `polish`), al iterar y antes de publicar los cambios de la práctica (`polish`), y antes de presentar (`audit`). Siempre manda el design system de Flock.
+Impeccable aparece en cada momento que toca el diseño: al configurar (`init`, `document`), cuando cambia el design system (`document`), al armar el deck (`critique`, `distill`, `typeset`, `polish`), en cada cambio de diseño al iterar y antes de publicar los cambios de la práctica (`polish`, con un hook que se lo recuerda a Claude antes de cada publicación), y antes de presentar (`audit`). Siempre manda el design system de Flock.
 
 Lo que aprende de tus preferencias, tu estilo y tus prácticas lo anota en `memoria.md` y lo usa las semanas siguientes. Cuando hay mucho para leer, la skill `orquestar` reparte el trabajo entre modelos más baratos.
 
@@ -37,7 +37,7 @@ El audio no sale de tu compu: lo transcribe Whisper (`medium`) en tu máquina y 
 
 Necesita `python -m pip install faster-whisper` y el comando `claude` (Claude Code) en el PATH. Para usar la placa de video NVIDIA, además `python -m pip install nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*"` (1,4 GB); sin eso corre en el procesador. La primera práctica baja el modelo (1,5 GB).
 
-`practicar.py` corre en segundo plano y arranca con Windows: un Artifact no puede arrancar programas, así que tiene que estar corriendo para que el botón funcione. Lo deja así `python practicar.py --instalar` (paso 5 de la instalación). Mientras no practicás ocupa unos 25 MB: Whisper se carga recién al terminar una práctica, y a los 10 minutos sin uso `practicar.py` se reinicia solo para volver a esos 25 MB. Para sacarlo del arranque y apagarlo: `python practicar.py --desinstalar`. Si actualizás el repo, volvé a correr `--instalar` para que use el código nuevo.
+`practicar.py` corre en segundo plano y arranca con Windows: un Artifact no puede arrancar programas, así que tiene que estar corriendo para que el botón funcione. Lo deja así `python practicar.py --instalar` (paso 6 de la instalación). Hasta la primera práctica ocupa unos 25 MB: Whisper se carga recién al terminar una práctica y a los 10 minutos sin uso se suelta, aunque parte de la memoria queda tomada hasta que reinicies la compu (antes se reiniciaba solo para liberarla, pero una vez no volvió a arrancar y se perdió una práctica). Si `practicar.py` deja de responder mientras grabás, el deck te avisa enseguida, y si falla al guardar, la grabación queda en el navegador con un botón "Reintentar guardar". Para sacarlo del arranque y apagarlo: `python practicar.py --desinstalar`. Si actualizás el repo, volvé a correr `--instalar` para que use el código nuevo.
 
 ## Instalación
 
@@ -45,7 +45,12 @@ Necesita `python -m pip install faster-whisper` y el comando `claude` (Claude Co
 2. Cloná el repo **en la carpeta donde están tus proyectos** (por ejemplo, el Escritorio): revisa las carpetas que tiene al lado.
 3. Copiá `config.ejemplo.json` como `config.json` y completalo (no se sube al repo): `nombre`, `area` (línea de la portada), `vertical` (`computer-vision`, `robotica`, `agentes`, `immersive` o `producto`), `design_proyecto`, `design_system` y `navegador` (`"edge"` para practicar en Edge; vacío, el predeterminado de Windows). Las imágenes de cada vertical van en `design/assets/verticals/<vertical>/`; el repo trae las de `computer-vision`.
 4. Abrí una sesión en la carpeta del repo y aceptá confiar en la carpeta: el repo declara Impeccable en `.claude/settings.json` y Claude Code lo trae. Si `/plugin` lo muestra habilitado pero no instalado, instalalo desde ahí con alcance de proyecto. Si no aparece, escribí `/plugin marketplace add pbakaus/impeccable` e instalalo desde `/plugin` → Discover. Después abrí una sesión nueva.
-5. Corré `/design-consent` y escribí **"Configurá avances semanales"**. Baja el design system, prepara Impeccable con el contexto de Flock (`PRODUCT.md` y `DESIGN.md`), deja `practicar.py` corriendo en segundo plano (`python practicar.py --instalar`), crea tu `memoria.md` y te ofrece crear la rutina.
+5. Opcional, para las figuras: instalá la skill anatomy (necesita Node 20.10+ y Chrome o Edge) y abrí una sesión nueva. Si no la tenés, la configuración te la ofrece.
+
+   ```bash
+   git clone --depth 1 https://github.com/wheresryan22/anatomy "$HOME/.claude/skills/anatomy"
+   ```
+6. Corré `/design-consent` y escribí **"Configurá avances semanales"**. Baja el design system, prepara Impeccable con el contexto de Flock (`PRODUCT.md` y `DESIGN.md`), deja `practicar.py` corriendo en segundo plano (`python practicar.py --instalar`), crea tu `memoria.md` y te ofrece crear la rutina.
 
 ## Qué hay
 
@@ -53,7 +58,8 @@ Necesita `python -m pip install faster-whisper` y el comando `claude` (Claude Co
 |---|---|
 | `.claude/skills/avances-semanales/SKILL.md` | El flujo completo, paso a paso. |
 | `.claude/skills/orquestar/SKILL.md` | Reparte lecturas grandes entre modelos baratos. Se activa sola. |
-| `.claude/settings.json` | Declara el plugin Impeccable para quien abra el repo. |
+| `.claude/settings.json` | Declara el plugin Impeccable para quien abra el repo, y el hook que recuerda el `polish`. |
+| `.claude/hooks/recordar_polish.py` | Antes de cada publicación del deck, le recuerda a Claude pasar `polish` de Impeccable si hubo cambios de diseño. |
 | `docs/jueves-diez.svg` | El encabezado de este README. |
 | `config.ejemplo.json` | Modelo de `config.json`, lo que cambia de persona a persona. |
 | `cambios.py`, `test_cambios.py` | Qué cambió desde el jueves anterior, y su prueba. |
@@ -62,4 +68,4 @@ Necesita `python -m pip install faster-whisper` y el comando `claude` (Claude Co
 | `design/deck-stage.js`, `design/editor.js` | Visor del deck y barra para navegar, editar, guardar, practicar y presentar. |
 | `design/assets/` | Logos de Flock e imágenes de la vertical. |
 
-Tu `config.json`, tu `PRODUCT.md` y tu `DESIGN.md` (el contexto que usa Impeccable: para quién presentás, qué querés lograr y cómo usás el design system de Flock; la skill los arma con vos al configurar), tus decks, links, `memoria.md`, tus prácticas y lo que se baja de Design no se suben: cada uno los genera en su máquina.
+Tu `config.json`, tu `PRODUCT.md` y tu `DESIGN.md` (el contexto que usa Impeccable: para quién presentás, qué querés lograr y cómo usás el design system de Flock; la skill los arma con vos al configurar), tus decks, tus figuras de anatomy (`design/figuras/`: el `build.mjs` de cada una y la página que publica el deck), links, `memoria.md`, tus prácticas y lo que se baja de Design no se suben: cada uno los genera en su máquina.

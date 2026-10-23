@@ -123,6 +123,8 @@
       padding: 10px 20px; border-radius: 999px; background: rgba(11, 11, 12, .9); border: 1px solid #ff6b6b; color: #fff;
       font: 500 22px/1 Poppins, system-ui, sans-serif; font-variant-numeric: tabular-nums }
     #pp-grabando::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #ff6b6b }
+    #pp-grabando.pp-caido { background: #ff6b6b; color: #000 }
+    #pp-grabando.pp-caido::before { content: "!"; width: auto; height: auto; background: none; font-weight: 700 }
   `;
   document.head.append(css);
 
@@ -180,7 +182,14 @@
     s.addEventListener('input', () => { sucio = true; });
   });
 
+  // Sin practicar.py la grabación no se puede guardar: se chequea antes de empezar y cada 10 s mientras graba,
+  // así se frena enseguida en vez de enterarse al final (el 22/10 se perdió una práctica entera así).
+  const vivo = () => fetch('/latido', { cache: 'no-store' }).then(r => r.ok, () => false);
+  let vigia = null;
+  const SIN_SERVIDOR = 'practicar.py no responde: esta práctica no se va a poder guardar. Frená y pedile a Claude que lo levante';
+
   async function empezar() {
+    if (!await vivo()) return estado(SIN_SERVIDOR);
     let mic;
     try { mic = await navigator.mediaDevices.getUserMedia({ audio: true }); }
     catch { return estado('Sin micrófono: permitilo en el navegador y probá de nuevo'); }
@@ -193,7 +202,14 @@
     grabando.hidden = false;
     grabando.textContent = 'Grabando · 0:00';
     estado('Grabando: apretá Terminar al final');
-    reloj = setInterval(() => { grabando.textContent = `Grabando · ${mmss(ahora())}`; }, 500);
+    grabando.classList.remove('pp-caido');
+    reloj = setInterval(() => { if (!grabando.classList.contains('pp-caido')) grabando.textContent = `Grabando · ${mmss(ahora())}`; }, 500);
+    vigia = setInterval(async () => {
+      const ok = await vivo();
+      grabando.classList.toggle('pp-caido', !ok);
+      if (!ok) { grabando.textContent = 'Sin servidor: frená, no se va a guardar'; estado(SIN_SERVIDOR); }
+      else estado('Grabando: apretá Terminar al final');
+    }, 10000);
     practicar.textContent = 'Terminar';
     practicar.classList.add('activo');
   }
@@ -201,6 +217,7 @@
     if (!grabadora) return empezar();
     const total = ahora();
     clearInterval(reloj);
+    clearInterval(vigia);
     const listo = new Promise(r => { grabadora.onstop = r; });
     grabadora.stop();
     grabadora.stream.getTracks().forEach(t => t.stop());
@@ -275,13 +292,21 @@
       titulo: (s.querySelector('h1, h2')?.textContent || s.dataset.label || '').trim(),
       contenido: s.innerText.replace(/\s+/g, ' ').trim().slice(0, 400),
     }));
+    const cuerpo = JSON.stringify({ deck: document.title, fecha: new Date().toISOString(), minutos, total, cambios, slides, audio });
     let id;
-    try {
-      const r = await fetch('/practica', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck: document.title, fecha: new Date().toISOString(), minutos, total, cambios, slides, audio }) });
-      ({ id } = await r.json());
-    } catch {
-      return paso('guardar', 'error', 'No pude guardar la práctica: ¿sigue corriendo practicar.py?');
+    while (!id) {
+      try {
+        const r = await fetch('/practica', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: cuerpo });
+        ({ id } = await r.json());
+      } catch {
+        // la grabación sigue en memoria: se puede reintentar cuando practicar.py vuelva a correr
+        paso('guardar', 'error', 'No pude guardar la práctica: ¿sigue corriendo practicar.py?');
+        await new Promise(r => {
+          const otra = boton('Reintentar guardar', null, () => { otra.remove(); paso('guardar', 'activo', 'Guardando la grabación'); r(); });
+          otra.style.justifySelf = 'start';
+          pp.querySelector('.pp-pasos').after(otra);
+        });
+      }
     }
     paso('guardar', 'hecho', 'Grabación guardada');
     paso('transcribir', 'activo');
